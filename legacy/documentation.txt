@@ -1,0 +1,172 @@
+2DTreeSearchRREarlySplit.py
+A Python implementation of DPNN query with exponential mechanism, random response and the early stop mechanism.
+
+    Class Server: 
+    A Server instance manages a kdtree and a client location. 
+    It can setup a new kdtree with given parameters. 
+    It can traverse the tree or perform calculations between tree nodes and client location.
+
+        def setup_tree_real_db:
+        this method setup the kdtree with real world data
+
+        def tree_tuple:
+        this method will generate a list of random tree node within a given domain
+
+        def setup_tree:
+        this method will setup a random kdtree with given domain, database size and dimension.
+
+        def set_client_value:
+        this method sets the client value.
+
+        def compute_distance:
+        this method will compute the euclidean distance between the root node and the client location.
+
+        def compute_distance_1D:
+        this method will compute the 1 dimension distance between the root node and the client location.
+
+        def compute_less:
+        this method output whether a given root composition is less than a given client composition
+
+        def RR_query:
+        this method takes in a query result and add noise to the query result using random response with exponential mechanism
+
+        def traverse:
+        this method traverse the kdtree to find nearest neighbours of the client location.
+        it uses RR_query to add noise to the query result, and will perform early stopping based on given level to stop.
+        this method will return a list of NN results and a list of all epsilon cost of this traverse.
+        
+        
+
+    def traverse_iter:
+    traverse_iter is a function that traverse a kdtree (setup by a Server instance) with DP method.
+    it will call the traverse method of the Server instance to obtain traverse result of the tree search.
+    it will call the search_knn method of the kdtree instance to obatin the traverse result of LDP.
+    then it will compare both results with the correct NN query and produce more useful data for analyzation.
+    the output is
+        tree_true: a list of 0 or 1 indicating if each of the top k NN are found by tree search
+        LDP_true: a list of 0 or 1 indicating if each of the top k NN are found by LDP
+        k_LDP_five: 0 or 1, indicating whether one of the top 5 NN is found by LDP
+        k_LDP_ten: 0 or 1, indicating whether one of the top 10 NN is found by LDP
+        k_tree_five: 0 or 1, indicating whether one of the top 5 NN is found by tree search
+        k_tree_ten: 0 or 1, indicating whether one of the top 10 NN is found by tree search
+        len(tree_found_results): the number of tree results
+        len(ldp_found_results): the number of LDP results
+        avg_num_results: the number of tree results
+        server.tree.height(): the height of the kdtree
+        final_eps: the accumulated epsilon for the tree search
+
+    def benchmark:
+    Benchmark is a wrapper function that will run the actual DPNN experiment.
+    After running the experiment, this function will process the result data and write it into an CSV file.
+    It will traverse a kdtree multiple (defualt to 500) times for each settings.
+    The setting will varie based on the node epsilon and the level of early stopping.
+    For each traverse, it will run the traverse_iter function, obtain the result data.
+    Then it will take avrage over all 500 traverse for the same setting and output the result.
+    the entries written into the CSV are as follow
+        Eps/Sensitivity: the final epsilon divide by Sensitivity
+        Node eps: the node epislon of this setting
+        Sensitivity: the sensitivity of this setting
+        Tree Eps: the avrage final epsilon of the tree search under this setting
+        DB size: the size of the database of this setting
+        Num Max Splits: the early stopping level of this setting
+        Avg Num Tree Results: average number of tree search results
+        Tree results: list of 0 or 1, indicating whether each of the top 5 NN are found by tree search
+            [2 3 4 5 7] indicates the nearest neighbour has been found by tree search 2 times, 2nd nearest neighbour has been found 3 times, etc.
+            ran the experiment 50 times, each time with a re-initialized client value and server values
+        Avg 5 Tree: average of whether one of the top 5 NN are found by tree search
+        Avg 10 Tree: average of whether one of the top 10 NN are found by tree search
+        Avg Num LDP Results: average number of LDP results
+        LDP results: list of 0 or 1, indicating whether each of the top 5 NN are found by LDP
+        Avg 5 LDP: average of whether one of the top 5 NN are found by LDP
+        Avg 10 LDP: average of whether one of the top 10 NN are found by LDP
+
+
+kdtree.py
+A Python implemntation of a kd-tree.
+
+    class Node:
+    An instance of Node is a typical tree node, it has a k-dimension value and two child (can be null) and some basic tree operations.
+    
+        def is_leaf:
+        This method determine whether the node is a leaf (no child)
+
+        def preorder:
+        this method traverse the tree in preorder (root, left, right)
+
+        def inorder:
+        this method traverse the tree in inorder (left, root, right)
+
+        def postorder:
+        this method traverse the tree in postorder (left, right, node)
+
+        def children:
+        this method retunr the children of the node
+
+        def set_child:
+        this method set the child of the node, 0 indicate left, 1 indicate right
+
+        def height:
+        this method return the height of the tree
+
+        def get_child_pos:
+        return left (0) or right (1) of a given child
+        
+    class KDNode(Node):
+    An instance of KDNode is a tree node specifically designed for kdtrees.
+
+        def add:
+        Add a KDNode to the kdtree
+
+        def create_subnode:
+        Return a duplication of the current node
+
+        def find_replacement:
+        Return a possible replacement for the current node
+
+        def should_remove:
+        Return wehther a given point is the node
+
+        def remove:
+        Remove a given point from the kdtree
+
+        def is_balanced:
+        return whether the kdtree is balanced
+
+        def rebalance:
+        return a new kdtree with the same nodes but balanced
+
+        def axis_dist:
+        return the distance between the given point and the node on a specific axis
+
+        def search_knn:
+        return the k nearest neighbours of a given point
+
+        def search_nn:
+        return the nearest neighbour of a given point
+
+        def search_nn_dist:
+        return the nearest neighbour of a given point within the given distance
+
+        def is_valid:
+        check if the tree is a valid tree
+
+        def extreme_child:
+        return the min or max child of this subtree
+
+        def create:
+        create a kdtree from a list of points
+
+        def check_dimensionality:
+        check whether all points have the same dimensionality
+
+        def level_order:
+        this method traverse the tree by level
+
+        def visualize:
+        this method will print the kdtree to visualize it
+        
+    
+GraphEpsVar.py
+This file is used to graph results obtained from 2DTreeSearchRREarlySplit.
+It will graph the results by different early stopping level, comparing the accuracy over the final epsilon.
+It will also graph the LDP results to compare.
