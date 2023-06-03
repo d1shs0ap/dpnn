@@ -17,7 +17,7 @@ i = 1
 file_list = ['2DresultsRREarlySplitVariable.csv'] #, '1DresultsRRSplitTop.csv']#, str(i)+'DresultsRRSplitTop.csv'] #, str(i)+'DresultsRRSplitBottom.csv']
 
 df_raw = pandas.read_csv(file_list[0])
-df_raw= df_raw[(df_raw["DB size"] == 100000)]
+df_raw = df_raw[(df_raw["DB size"] == 100000)]
 df_constant = df_raw[(df_raw["Eps var"] == "constant")]
 df_linear = df_raw[(df_raw["Eps var"] == "linear")]
 df_exp = df_raw[(df_raw["Eps var"] == "exp")]

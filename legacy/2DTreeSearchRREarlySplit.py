@@ -1,3 +1,4 @@
+# A Python implementation of DPNN query with exponential mechanism, random response and the early stop mechanism.
 import kdtree
 import pickle
 import sys
@@ -16,10 +17,16 @@ import csv
 from decimal import *
 
 class Server:
+    '''
+    Contains kd tree of locations
+    '''
     def __init__(self):
         self.traverse_done = False
 
     def setup_tree_real_db(self):
+        '''
+        Create kd tree from a real dataset
+        '''
         name_dataset = "gowalla"
         filename_out = 'user_data_%s_discrete.pkl' % name_dataset
 
@@ -39,6 +46,9 @@ class Server:
         self.tree = kdtree.create(latlong_user_list)
 
     def tree_tuple(self, domain):
+        '''
+        Used in the next method to generate a "random" kd tree
+        '''
         tree_node_list = []
         for x in range(self.dimension):
             tree_node_list.append(random.randint(0, domain))
@@ -46,6 +56,9 @@ class Server:
     
     # Create tree
     def setup_tree(self, domain, db_size, dimension):
+        '''
+        Create kd tree with random locations
+        '''
         self.dimension = dimension
         self.list = [self.tree_tuple(domain) for i in range(db_size)]
         range_lists =[]
@@ -67,6 +80,9 @@ class Server:
 
     # Compute Euclidian distance
     def compute_distance(self, root_val):
+        '''
+        compute the euclidean distance between the root node and the client location
+        '''
         pre_sqrt_val = 0
         for x in range(self.dimension):
             pre_sqrt_val += (root_val[x] - self.client_val[x])**2
@@ -83,9 +99,16 @@ class Server:
         else:
             return 0
 
-    def traverse(self, tree, client_val, eps, sensitivity,splitsLeft=0, search_index = 0):
+    def traverse(self, tree, client_val, eps, sensitivity, splitsLeft=0, search_index = 0):
+        '''
+        traverse the kdtree to find nearest neighbours of the client location.
+        it uses RR_query to add noise to the query result, and will perform early stopping based on given level to stop.
+        this method will return a list of NN results and a list of all epsilon cost of this traverse.
+
+        splitsLeft: used to split later for early stopping
+        '''
         root = self.tree
-        if tree:
+        if tree: # so tree can be None... gotta change this part
             root = tree
         dimensions = root.dimensions
         # Since we can end up with many branches, keep a list of the eps budget
@@ -131,6 +154,9 @@ class Server:
     (since EM would divide it in two), I just used a RR implementation
     '''
     def RR_query(self, query_result, eps=0.01):
+        '''
+        takes in a query result and add noise to the query result using random response with exponential mechanism
+        '''
         eps_var = np.e ** eps
         prob_true = eps_var / (eps_var + 1)
         result_list = [query_result, 1-query_result]
@@ -207,9 +233,9 @@ def traverse_iter(max_range, database_size, eps, sensitivity, k_val, max_split, 
                 if unique_tree:
                     tree_true[arr_ind_tree] += 1
                 if (arr_ind_tree < 10):
-                    k_tree_ten = 1
+                    k_tree_ten = 1 # += ?
                 if (arr_ind_tree < 5):
-                    k_tree_five = 1
+                    k_tree_five = 1 # += ?
 
     # final eps calculation
     e_1 = sum(tree_eps)
@@ -312,6 +338,9 @@ def benchmark(dimension, do_LDP):
                         res_x = 0
                         while res_x < len(res):
                             if res_x < 2:
+                                # at [total_x] we are adding whether we found the kth nearest neighbour in this iteration
+                                # res_x to keep track of each return value in return(tree_true, LDP_true, k_LDP_five, k_LDP_ten, k_tree_five, k_tree_ten, len(tree_found_results), len(ldp_found_results), avg_num_results, server.tree.height(), final_eps)
+                                # so total_val[total_x] is the number of times we found the kth nearest neighbour across all iterations
                                 total_x = 0
                                 while total_x < len(total_val):
                                     if res_x== 0:
@@ -344,7 +373,7 @@ def benchmark(dimension, do_LDP):
                     avg_distinct_tree_results = num_distinct_tree_results/iterations
                     avg_distinct_ldp_results = num_distinct_ldp_results/iterations
 
-                    avg_total_tree = [x/normalizing_factor for x in total_val]
+                    avg_total_tree = [x/normalizing_factor for x in total_val] # why divide by normalizing factor?? turns # of times found into # of times found / (50 / 100) = 2 * number of times found
                     avg_total_LDP = [x/normalizing_factor for x in total_LDP]
 
                     with open(str(dimension) + 'DresultsRREarlySplit.csv', 'a') as f:
@@ -363,5 +392,5 @@ def benchmark(dimension, do_LDP):
         database_size = database_size * 10
     ray.shutdown()
 
-benchmark(2, True)
+benchmark(dimension=2, do_LDP=True)
 
