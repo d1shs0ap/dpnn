@@ -21,10 +21,12 @@ if __name__ == '__main__':
     # for each generated server and client, do searches w/. different epsilons
     for server_size in SERVER_SIZES:
         for sensitivity in SENSITIVITIES:
+            
             # generate server
             server = generate_server_from_random(DIMENSION, server_size, sensitivity)
             server_tree = kdtree_extension.create(server, DIMENSION)
-
+            
+            # dicts to record results
             eps_to_ldp_results, eps_to_dptt_results = defaultdict(lambda: defaultdict(list)), defaultdict(lambda: defaultdict(list))
 
             for _ in range(CLIENT_BATCH_SIZE):
@@ -45,7 +47,7 @@ if __name__ == '__main__':
                     evaluate(eps_to_ldp_results, eps, ldp_nn, true_nn)
                     evaluate(eps_to_dptt_results, eps, dptt_nn, true_nn)
 
-
+            # write results to dataframe
             for eps, results in eps_to_ldp_results.items():
                 results_dict = {
                     'method': 'LDP', 'dimension': DIMENSION, 'eps': eps, 'sensitivity': sensitivity, 'server_size': server_size, 'client_batch_size': CLIENT_BATCH_SIZE,
