@@ -3,6 +3,19 @@ import random
 import math
 import scipy
 
+
+# ------------------------------ TRUE NN ------------------------------
+
+def search_true(client, server_tree, k):
+    # retrieve the true nearest neighbours
+    true_nn_and_dists = server_tree.search_knn(client, k) # if distance is not given, Euclidean distance is assumed
+    true_nn = list(map(lambda node_and_dist: node_and_dist[0], true_nn_and_dists))
+    return true_nn
+
+
+
+# ------------------------------ LDP ------------------------------
+
 def generate_laplace_noise(dimension, eps, sensitivity):
 
     def generate_planar_laplace_noise(eps_geo_ind):
@@ -32,15 +45,34 @@ def generate_laplace_noise(dimension, eps, sensitivity):
     
     else:
         raise Exception("dimension must be 1 or 2")
+    
+def search_ldp(client, server_tree, dimension, eps, sensitivity, k):
+
+    # use LDP to retrieve top NN
+    noised_client = list(map(lambda x, y: x + y, client, generate_laplace_noise(dimension, eps, sensitivity)))
+    ldp_nn_and_dists = server_tree.search_knn(noised_client, k)
+    ldp_nn = list(map(lambda node_and_dist: node_and_dist[0], ldp_nn_and_dists))
+
+    return ldp_nn
 
 
-def search_dptt_cmp(server_tree, client, node_eps, splits_left=0):
+
+# ------------------------------ DPTT ------------------------------
+
+def search_dptt_cmp(client, server_tree, dimension, node_eps):
     '''
+    :client: query value
+    :server_tree: the database values stored in a kdtree
+    :dimension: dimension of query / server value
+    :node_eps: list of node values we are going to use for splitting
 
     DP-TT-CMP algorithm
     '''
 
     def apply_exponential_mechanism(bit, eps):
+        '''
+        exponential mechanism for selecting 0 or 1
+        '''
         # probability that the bit given is unchanged
         bit_unchanged_prob = math.exp(eps / 2)
 
@@ -48,27 +80,28 @@ def search_dptt_cmp(server_tree, client, node_eps, splits_left=0):
         chosen_bit = random.choices([bit, not bit], weights=[bit_unchanged_prob, 1])
         return chosen_bit
 
-    # keep track of nearest neighbours and total epsilon used up    
+    # keep track of nearest neighbours, level we're at, and stack for DFS
     nn = []
-
-    # stack for dfs and axis for kdtree
+    level = 0
     queue = [server_tree]
-    axis = 0
-    
+
     while queue:
         node = queue.pop()
         
         if not node:
             continue
+
         if node.is_leaf:
             nn.append(node)
             continue
         
         # early stopping
-        if splits_left > 0:
+        if level < len(node_eps):
+            axis = level % dimension
+
             # if client data greater than current node, choose right child (the bit below will be 1)
             choose_right = client[axis] > node.data[axis]
-            noised_choose_right = apply_exponential_mechanism(choose_right, node_eps)
+            noised_choose_right = apply_exponential_mechanism(choose_right, node_eps[level])
 
             # traverse down the exp-mechanism-randomized path
             if noised_choose_right:
@@ -76,13 +109,12 @@ def search_dptt_cmp(server_tree, client, node_eps, splits_left=0):
             else:
                 queue.append(node.left)
             
-            splits_left -= 1
-            axis = 1 - axis
+            level += 1
             continue
 
         # after we get past early stopping, add everything
-        nn.append(node)
         queue.append(node.left)
         queue.append(node.right)
     
     return nn
+

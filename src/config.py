@@ -1,17 +1,18 @@
 # for random geneartion of server and client
 DIMENSION = 2
-SERVER_SIZE = 10 ** 5
+SERVER_SIZES = [10 ** 5]
+CLIENT_BATCH_SIZE = 10 # number of different client value to try per server
 
-LOWER_BOUND = 0
-UPPER_BOUND = 10 ** 7
+SENSITIVITIES = [10 ** 7]
 
 # DP NN search parameters
-K = 10
+TRUE_K = 10
 
 # LDP
 LDP_K = 25000
-LDP_EPS = 0.1 # the epsilon that guarantees eps-privacy, *not* eps-geo-indistinguishability because eps-privacy is the equivalent analog for eps-DP
 
 # DP-TT
-DPTT_NODE_EPS = 0.1
 EARLY_STOPPING_LEVEL = 2
+# functions used to determine node epsilon for exp. mech. as we move down the levels (first level starts at 0)
+NODE_EPS_FUNCTIONS = [lambda level: 0.1, lambda level: 20, lambda level: 10 / (level + 1)]
+
