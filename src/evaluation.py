@@ -5,11 +5,8 @@ def calculate_retrieved_and_relevant(retrieved, relevant):
 
     Calculates the number of results that are both retrieved and relevant.
     '''
-    total = 0
-    for x in retrieved:
-        for y in relevant:
-            total += x == y
-    return total
+    intersection = set(retrieved) & set(relevant)
+    return len(intersection)
 
 def calculate_precision(retrieved, relevant):
     '''
@@ -37,19 +34,3 @@ def calculate_mean(lst):
     '''
     return sum(lst) / len(lst)
 
-
-def evaluate(eps_to_results, eps, retrieved, relevant):
-    '''
-    Evaluates everything and add to results dictionary
-    '''
-    raw_acc = calculate_top_k_accuracy(retrieved, relevant, 1)
-    top_5_acc = calculate_top_k_accuracy(retrieved, relevant, 5)
-    precision = calculate_precision(retrieved, relevant)
-    recall = calculate_recall(retrieved, relevant)
-
-    eps_to_results[eps]['raw_acc'].append(raw_acc)
-    eps_to_results[eps]['top_5_acc'].append(top_5_acc)
-    eps_to_results[eps]['precision'].append(precision)
-    eps_to_results[eps]['recall'].append(recall)
-
-    return eps_to_results

@@ -233,9 +233,9 @@ def traverse_iter(max_range, database_size, eps, sensitivity, k_val, max_split, 
                 if unique_tree:
                     tree_true[arr_ind_tree] += 1
                 if (arr_ind_tree < 10):
-                    k_tree_ten = 1 # += ?
+                    k_tree_ten = 1
                 if (arr_ind_tree < 5):
-                    k_tree_five = 1 # += ?
+                    k_tree_five = 1
 
     # final eps calculation
     e_1 = sum(tree_eps)

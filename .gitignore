@@ -1,4 +1,8 @@
 .DS_Store
-*.txt
+
+output.txt
 *.csv
+
 **/__pycache__
+
+**/.ipynb_checkpoints
