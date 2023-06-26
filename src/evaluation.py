@@ -1,3 +1,9 @@
+def extract_location_set(kd_node):
+    '''
+    Given a list of KD nodes, extract their locations and put them into a set
+    '''
+    return set(tuple(node.data) for node in kd_node)
+
 def calculate_retrieved_and_relevant(retrieved, relevant):
     '''
     :retrieved: list of neighbours retrieved by DP algorithm
@@ -5,7 +11,7 @@ def calculate_retrieved_and_relevant(retrieved, relevant):
 
     Calculates the number of results that are both retrieved and relevant.
     '''
-    intersection = set(retrieved) & set(relevant)
+    intersection = extract_location_set(retrieved) & extract_location_set(relevant)
     return len(intersection)
 
 def calculate_precision(retrieved, relevant):

@@ -19,7 +19,8 @@ def create(point_list=None, dimensions=None, axis=0, sel_axis=None):
         return None
     
     elif len(point_list) == 1:
-        return KDNode(point_list[0], axis=axis, sel_axis=sel_axis, dimensions=dimensions)
+        loc = point_list[0]
+        return KDNode(data=loc, axis=axis, sel_axis=sel_axis, dimensions=dimensions)
 
     # Sort point list and choose median as pivot element
     point_list = list(point_list)
