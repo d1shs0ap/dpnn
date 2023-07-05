@@ -61,7 +61,7 @@ def search_laplace(client, server_tree, dimension, geo_eps, k):
 
 
 
-# ------------------------------ DPTT ------------------------------
+# ------------------------------ DP-TT ------------------------------
 
 def apply_exponential_mechanism_cmp(client, node, axis, eps):
     '''
@@ -92,7 +92,7 @@ def apply_exponential_mechanism_dis(client, node, axis, geo_eps):
 def search_dptt(client, server_tree, dimension, early_stopping_level, node_geo_eps_generator, cmp, sensitivity):
     '''
     :client: query value
-    :server_tree: the database values stored in a kdtree
+    :server_tree: the database values stored in a kdtree, with nodes pushed down for DP-TT
     :dimension: dimension of query / server value
     :early_stopping_level: stop this number of levels before the leaf
     :node_geo_eps_generator: level -> eps
@@ -146,3 +146,79 @@ def search_dptt(client, server_tree, dimension, early_stopping_level, node_geo_e
     
     return nn, eps_lst
 
+
+# ------------------------------ L-SRR ------------------------------
+
+def search_lsrr(client, server_tree, dimension, eps, k, domain, m):
+    '''
+    Implementation of L-SRR mechanism: https://arxiv.org/pdf/2209.15091.pdf
+
+    Assumes that number of groups same as the height of the encoding tree.
+    '''
+
+    def sample_group(m, a_max, delta):
+        groups = [i for i in range(m)]
+        
+        # the weight of each group is alpha_i * |G_i|
+        group_weights = [a_max * 1] # a_1 * |G_1|
+        for i in range(1, m): # rest of the groups
+            a_i = a_max - i * delta
+            group_size = (2 ** dimension - 1) * ((2 ** (i - 1)) ** dimension)
+            group_weights.append(a_i * group_size)
+
+        selected_group = random.choices(groups, weights=group_weights)
+        return selected_group[0]
+    
+    def is_within_bounds(client, bounds, dimension):
+        for dim in range(dimension):
+            if bounds[dim][0] <= client[dim] <= bounds[dim][1]:
+                continue
+            return False # as long as one axis is not within bounds, client not within bounds
+        return True
+
+    c = math.exp(eps) # Theorem 3.3, when group size does not change based on location (x and x')
+    d = domain ** dimension
+
+    # (4) in L-SRR paper
+    sum_term = 0
+    for i in range(1, m):
+        group_size = (2 ** dimension - 1) * ((2 ** (i - 1)) ** dimension)
+        sum_term += i * group_size
+    a_min = (m - 1) / ((m - 1) * d * c - (c - 1) * sum_term)
+    a_max = c * a_min
+    
+    # (3) in L-SRR paper
+    delta = (a_max - a_min) / (m - 1)
+
+    # to sample a point using L-SRR, we
+    # 1. Sample the group
+    # 2. Sample a point uniformly in the group
+
+    # 1. Sample the group
+    group = sample_group(m, a_max, delta)
+
+    # 2. Sample a point uniformly in the group
+    
+    # how long is one "unit" in this group
+    unit_length = domain / 2 ** ((m - 1) - group)
+    # find bounds of the chosen group
+    bounds = [((client[dim] // unit_length) * unit_length, (client[dim] // unit_length + 1) * unit_length) for dim in range(dimension)]
+    
+    # sample from client
+    noised_client = [random.uniform(bounds[dim][0], bounds[dim][1]) for dim in range(dimension)]
+    
+    # if sampling from group 1, then we're good to go, but if previous groups exist, need to make sure not in previous groups
+    if group > 0:
+        # how long is one "unit" in previous group
+        prev_unit_length = domain / 2 ** ((m - 1) - (group - 1))
+        # find bounds of the chosen group
+        prev_bounds = [((client[dim] // prev_unit_length) * prev_unit_length, (client[dim] // prev_unit_length + 1) * prev_unit_length) for dim in range(dimension)]
+
+        while is_within_bounds(noised_client, prev_bounds, dimension):
+            noised_client = [random.uniform(bounds[dim][0], bounds[dim][1]) for dim in range(dimension)]
+
+    # NN search using the noised point
+    lsrr_nn_and_dists = server_tree.search_knn(noised_client, k)
+    lsrr_nn = list(map(lambda node_and_dist: node_and_dist[0], lsrr_nn_and_dists))
+
+    return lsrr_nn

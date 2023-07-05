@@ -1,7 +1,7 @@
 # server generation
 DIMENSION = 2
 SERVER_SIZE = 10 ** 2 # 1 gas station per 1km x 1km square, lead
-SERVER_DOMAIN = 10 ** 4 # 10km by 10km radius, 20 times Toronto
+SERVER_DOMAIN = 10 ** 5 # 100km by 100km radius, 20 times Toronto
 
 # client generation
 CLIENT_BATCH_SIZE = 100 # number of different client value to try per server
@@ -50,3 +50,7 @@ NODE_GEO_EPS_GENERATORS = [
 #     lambda level: 12 * 5.3 / (level ** 2),
 #     lambda level: 17 * 5.3 / (level ** 2)
 # ]
+
+LSRR_M = 10 # separate the map into a tree of height 23
+
+OUTPUT_DIR = 'graphs/lsrr'

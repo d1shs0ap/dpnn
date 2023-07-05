@@ -2,9 +2,8 @@ import kdtree_extension
 import kdtree
 import pandas as pd
 import inspect
-import seaborn as sns
-import matplotlib.pyplot as plt
 from tqdm import tqdm
+import os
 
 from data import *
 from nn import *
@@ -91,6 +90,9 @@ if __name__ == '__main__':
                     # laplace search, set the k-val (return size) same as return size of DP-TT search
                     laplace_nn = search_laplace(client=client, server_tree=server_tree, dimension=DIMENSION, geo_eps=geo_eps_dis, k=len(dis_nn))
 
+                    # L-SRR search
+                    lsrr_nn = search_lsrr(client=client, server_tree=server_tree, dimension=DIMENSION, eps=geo_eps_dis * CLIENT_SENSITIVITY, k=len(dis_nn), domain=SERVER_DOMAIN, m=LSRR_M)
+
 
                     # -----------------------------------------------------------------------------
                     # ------------------------------ EVALUATION -----------------------------------
@@ -131,6 +133,18 @@ if __name__ == '__main__':
                             'top_5_acc': calculate_top_k_accuracy(retrieved=laplace_nn, relevant=true_nn, k=5), 
                             'precision': calculate_precision(retrieved=laplace_nn, relevant=true_nn), 
                             'recall': calculate_recall(retrieved=laplace_nn, relevant=true_nn),
+                        },
+                        {
+                            # --- experiment settings ---
+                            'trial': trial, 'early_stopping_level': early_stopping_level, 'node_geo_eps_generator': inspect.getsource(node_geo_eps_generator), 
+                            'geo_eps': geo_eps_dis, 'method': 'L-SRR',
+
+
+                            # --- evaluation metrics ---
+                            'raw_acc': calculate_top_k_accuracy(retrieved=lsrr_nn, relevant=true_nn, k=1), 
+                            'top_5_acc': calculate_top_k_accuracy(retrieved=lsrr_nn, relevant=true_nn, k=5), 
+                            'precision': calculate_precision(retrieved=lsrr_nn, relevant=true_nn), 
+                            'recall': calculate_recall(retrieved=lsrr_nn, relevant=true_nn),
                         }
                     ])
 
@@ -139,4 +153,7 @@ if __name__ == '__main__':
                     # update progress bar
                     pbar.update(1)
     
-    raw_df.to_csv('graphs/test/raw.csv')
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
+    
+    raw_df.to_csv(f'{OUTPUT_DIR}/raw.csv')
