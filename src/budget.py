@@ -23,6 +23,3 @@ def calculate_adaptive_eps(eps_lst, delta):
 
     final_eps = min(sum(eps_lst), second_term)
     return final_eps
-
-def calculate_eps_sum(eps_lst):
-    return sum(eps_lst)

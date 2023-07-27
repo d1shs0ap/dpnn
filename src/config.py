@@ -1,56 +1,62 @@
+import math
+
 # server generation
 DIMENSION = 2
-SERVER_SIZE = 10 ** 2 # 1 gas station per 1km x 1km square, lead
-SERVER_DOMAIN = 10 ** 5 # 100km by 100km radius, 20 times Toronto
+
+SERVER_BATCH_SIZE = 1
+SERVER_SIZE = 10 ** 5 # 100, 000 people living here
+SERVER_DOMAIN = math.sqrt(10 ** 7) # 10 km^2 total area
 
 # client generation
-CLIENT_BATCH_SIZE = 100 # number of different client value to try per server
-CLIENT_SENSITIVITY = 10 ** 5 # 100km by 100km radius
+CLIENT_BATCH_SIZE = 500 # number of different client value to try per server
+CLIENT_SENSITIVITY = SERVER_DOMAIN
 
-# precision and recall considers top K values relevant
-TRUE_K = 10
+# precision and recall considers all values within 5km to be a true nearest neighbour
+TRUE_RADIUS_SQUARED = (SERVER_DOMAIN ** 2 / SERVER_SIZE) * 10
 
 # DP-TT
-EARLY_STOPPING_LEVELS = [1, 3, 5] # the level at which we stop splitting (e.g., 3 -> split thrice at level 0, 1, 2)
+# EARLY_STOPPING_LEVELS = [5]
+EARLY_STOPPING_LEVELS = [1, 3, 5, 9] # the level at which we stop splitting (e.g., 3 -> split thrice at level 0, 1, 2)
 
 # functions used to determine node epsilon for exp. mech. as we move down the levels (first level starts at 0)
-GEO_EPS_UNIT = 0.0000001
-NODE_GEO_EPS_GENERATORS = [
-    lambda level: 1 * GEO_EPS_UNIT,
-    lambda level: 10 * GEO_EPS_UNIT,
-    lambda level: 100 * GEO_EPS_UNIT,
-    lambda level: 150 * GEO_EPS_UNIT,
-    lambda level: 200 * GEO_EPS_UNIT,
-    lambda level: 300 * GEO_EPS_UNIT,
-    lambda level: 400 * GEO_EPS_UNIT,
-    lambda level: 500 * GEO_EPS_UNIT,
-    lambda level: 700 * GEO_EPS_UNIT,
-    lambda level: 1000 * GEO_EPS_UNIT,
-    # lambda level: 0.000000001,
-    # lambda level: 0.000000005,
-    # lambda level: 0.00000001,
-    # lambda level: 0.00000005,
-    # lambda level: 0.0000001,
-    # lambda level: 0.0000005,
-    # lambda level: 0.000001,
-]
+# EPSILONS = [0.01, 1, 2, 5, 7, 12, 17]
+EPSILONS = [0.01, 0.1, 1, 1.5, 2, 3, 4, 5, 7, 10, 12, 17]
 
+def constant(eps):
+    return lambda level: eps
 
-# NODE_EPS_GENERATORS = [
-#     lambda level: 0.01 * 5.3 / (level ** 2),
-#     lambda level: 0.1 * 5.3 / (level ** 2),
-#     lambda level: 1 * 5.3 / (level ** 2),
-#     lambda level: 1.5 * 5.3 / (level ** 2),
-#     lambda level: 2 * 5.3 / (level ** 2),
-#     lambda level: 3 * 5.3 / (level ** 2),
-#     lambda level: 4 * 5.3 / (level ** 2),
-#     lambda level: 5 * 5.3 / (level ** 2),
-#     lambda level: 7 * 5.3 / (level ** 2),
-#     lambda level: 10 * 5.3 / (level ** 2),
-#     lambda level: 12 * 5.3 / (level ** 2),
-#     lambda level: 17 * 5.3 / (level ** 2)
-# ]
+def linear(eps):
+    return lambda level: 1.5 * eps - 0.07 * eps * (level + 1)
 
-LSRR_M = 10 # separate the map into a tree of height 23
+def log(eps):
+    return lambda level: 1.5 * eps - 0.28 * eps * math.log(level + 1)
 
-OUTPUT_DIR = 'graphs/lsrr'
+def sqrt(eps):
+    return lambda level: 1.5 * eps - 0.2 * eps * math.sqrt(level + 1)
+
+def quadratic(eps):
+    return lambda level: 1.5 * eps - 0.008 * eps * (level + 1) ** 2
+
+# show increasing epsilon is bad, when pronounced
+def reverse_linear(eps):
+    height = int(math.log2(SERVER_SIZE)) - 2
+    return lambda level: (1.6 - 0.084 * height) * eps + 0.084 * eps * (level + 1)
+
+# show decreasing too fast is bad
+def inverse_sqrt(eps):
+    return lambda level: 2.15 * eps / (level + 1) ** (1 / 2)
+
+def inverse_linear(eps):
+    return lambda level: 4 * eps / (level + 1)
+
+def inverse_quadratic(eps):
+    return lambda level: 8 * eps / (level + 1) ** 2
+
+def best_scheduler(eps):
+    return lambda level: 1.3 * eps - 0.17 * eps * math.sqrt(level + 1)
+
+SCHEDULER_TYPES = [constant]
+# SCHEDULER_TYPES = [constant, linear, log, sqrt, quadratic, reverse_linear, inverse_sqrt, inverse_linear, inverse_quadratic]
+SCHEDULER_TYPE_TO_SCHEDULERS = {scheduler_type.__name__: [scheduler_type(eps) for eps in EPSILONS] for scheduler_type in SCHEDULER_TYPES}
+
+OUTPUT_DIR = f'graphs/densities/size_{SERVER_SIZE}_domain_{int(SERVER_DOMAIN ** 2)}'
