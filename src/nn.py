@@ -27,41 +27,15 @@ def search_within_radius(client, server_tree, radius):
 
 # ------------------------------ LDP ------------------------------
 
-def search_laplace(client, server_tree, dimension, geo_eps, k):
+def search_laplace(client, server_tree, geo_eps, k):
     '''
     Add laplace noise then retrieve top-k nearest neighbours with a noised client
     '''
-    
-    def generate_laplace_noise(dimension, geo_eps):
-        '''
-        Helper function to generate Laplace noise
-        '''
-        def generate_planar_laplace_noise(geo_eps):
-            '''
-            :geo_eps: for eps-geo-indistinguishability, *not* for eps-privacy
 
-            Generates laplace that guarantees eps-geo-indistinguishability. Guarantee provided by Theorem 4.1 (if we ignore precision and truncation, first term of RHS is the bound) of geo-indistinguishability paper
-            '''
-            # generate polar coordinates
-            theta = random.uniform(0, 2 * math.pi) # angle
-
-            # radius, using the method outlined in the geo-indistinguishability paper
-            p = random.uniform(0, 1)
-            r = -1 / geo_eps * (scipy.special.lambertw((p - 1) / math.e, k=-1).real + 1)
-
-            # convert polar coordinates to cartesian coordinates
-            x, y = r * math.cos(theta), r * math.sin(theta)
-
-            return x, y
-
-        if dimension == 2:
-            return generate_planar_laplace_noise(geo_eps)
-
-        else:
-            raise Exception("dimension must be 2")
-
-    # use LDP to retrieve top NN
+    # add noise
     noised_client = list(map(lambda x, y: x + y, client, random_laplace_noise(geo_eps)))
+
+    # retrieve nearest neighbours
     ldp_nn_and_dists = server_tree.search_knn(noised_client, k)
     ldp_nn = list(map(lambda node_and_dist: node_and_dist[0], ldp_nn_and_dists))
 
@@ -71,33 +45,8 @@ def search_laplace(client, server_tree, dimension, geo_eps, k):
 
 # ------------------------------ DP-TT ------------------------------
 
-def apply_exponential_mechanism_cmp(client, node, axis, eps):
-    '''
-    exponential mechanism for selecting 0 or 1
-    '''
-    # the correct choice will be 1 if client is to the right of node, 0 o/w.
-    correct_choice = client[axis] > node.data[axis]
 
-    # probability that the bit given is unchanged
-    stay_with_correct_choice = math.exp(eps / 2)
-
-    # choose bit with exponential mechanism
-    chosen_bit = random.choices([correct_choice, not correct_choice], weights=[stay_with_correct_choice, 1])
-    return chosen_bit[0]
-
-def apply_exponential_mechanism_dis(client, node, axis, geo_eps):
-    '''
-    exponential mechanism for selecting based on distance from reference point
-    '''
-    # probability that the positive, negative direction are chosen
-    choose_left_prob = math.exp(geo_eps / 2 * (node.data[axis] - client[axis]))
-    choose_right_prob = math.exp(geo_eps / 2 * (client[axis] - node.data[axis]))
-
-    # choose bit with exponential mechanism
-    chosen_bit = random.choices([0, 1], weights=[choose_left_prob, choose_right_prob])
-    return chosen_bit[0]
-
-def search_dptt(client, server_tree, dimension, early_stopping_level, scheduler, cmp):
+def search_dptt(client, server_tree, early_stopping_level, scheduler):
     '''
     :client: query value
     :server_tree: the database values stored in a kdtree, with nodes pushed down for DP-TT
@@ -107,12 +56,28 @@ def search_dptt(client, server_tree, dimension, early_stopping_level, scheduler,
 
     DP-TT-CMP algorithm, returns (nearest neighbours lst, total epsilon spent)
     '''
+    
+    def apply_exponential_mechanism_cmp(client, node, axis, eps):
+        '''
+        exponential mechanism for selecting 0 or 1
+        '''
+        # the correct choice will be 1 if client is to the right of node, 0 o/w.
+        correct_choice = client[axis] > node.data[axis]
+
+        # probability that the bit given is unchanged
+        stay_with_correct_choice = math.exp(eps / 2)
+
+        # choose bit with exponential mechanism
+        chosen_bit = random.choices([correct_choice, not correct_choice], weights=[stay_with_correct_choice, 1])
+        return chosen_bit[0]
+    
     # keep track of nearest neighbours, level we're at, and stack for DFS, and total eps spent
     nn = []
     level = 0 # LEVEL MUST START AT ZERO! When constructing the kd-tree, the first split is done according to the 0th-axis. Setting level = 1 leads to comparing the 1st-axis against a node whose 0th-axis is the median, but 1st axis has no guarantees!
     queue = [server_tree]
     eps_lst = []
     eps_geo_lst = []
+    dimension = len(client)
 
     while queue:
         node = queue.pop()
@@ -132,11 +97,6 @@ def search_dptt(client, server_tree, dimension, early_stopping_level, scheduler,
             # if cmp:
             node_eps = scheduler(level)
             noised_choose_right = apply_exponential_mechanism_cmp(client, node, axis, eps=node_eps)
-            
-            # # -------------------------------- DP-TT DIS --------------------------------
-            # else:
-            #     node_eps = scheduler(level) / abs(node.data[axis] - client[axis])
-            #     noised_choose_right = apply_exponential_mechanism_dis(client, node, axis, geo_eps=node_eps / sensitivity)
 
             # traverse down the exp-mechanism-randomized path
             if noised_choose_right:
@@ -160,7 +120,7 @@ def search_dptt(client, server_tree, dimension, early_stopping_level, scheduler,
 
 # ------------------------------ L-SRR ------------------------------
 
-def search_lsrr(client, server_tree, dimension, eps, k, domain):
+def search_lsrr(client, server_tree, eps, k, domain):
     '''
     Implementation of L-SRR mechanism: https://arxiv.org/pdf/2209.15091.pdf
 
@@ -168,8 +128,9 @@ def search_lsrr(client, server_tree, dimension, eps, k, domain):
 
     To sample a point using L-SRR, we
         0. Calculate constants
-        1. Sample a group
+        1. Sample a group from a unit square
         2. Sample a point uniformly from given group
+        3. Scale and translate the unit square to our rectangle
     
     Note that here we don't calculate the exact group size but instead relative group sizes, treating |G_1| = 1
     '''
@@ -236,16 +197,17 @@ def search_lsrr(client, server_tree, dimension, eps, k, domain):
             return True
         
         # one "unit" in this group = domain / # of pieces we are splitting the domain into
-        unit_length = domain / 2 ** ((m - 1) - group)
+        unit_length = 1 / 2 ** ((m - 1) - group)
+        # which squareis the client in?
         bounds = calculate_bounds(client, unit_length)
         
         # sample client from the Group's bounds with equal probability
         noised_client = [random.uniform(lower, upper) for (lower, upper) in bounds]
         
-        # if previous group exists
+        # if we didn't sample G_0 (i.e., if we have a "missing square")
         if group > 0:
             
-            prev_unit_length = domain / 2 ** ((m - 1) - (group - 1))
+            prev_unit_length = 1 / 2 ** ((m - 1) - (group - 1))
             prev_bounds = calculate_bounds(client, prev_unit_length)
 
             # sample until no longer in previous group
@@ -254,7 +216,9 @@ def search_lsrr(client, server_tree, dimension, eps, k, domain):
 
         return noised_client
 
+
     # 0. Calculate constants
+    dimension = len(client)
     if dimension == 1:
         m = round(math.log2(server_tree.height()))
     elif dimension == 2:

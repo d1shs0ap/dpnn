@@ -1,30 +1,51 @@
-# generate random locations / read locations from dataset
 import random
+import pandas as pd
+from enum import Enum
 
-def generate_server_from_gowalla_dataset():
-    pass
+class Dataset(Enum):
+    RANDOM = 0
+    GOWALLA = 1
 
-def generate_server_from_random(dimension, server_size, upper_bound, lower_bound=0):
+def generate_point_from_random(domain):
     '''
-    :dimension: dimension of each point in the server (e.g., the dimension of a point on the map is 2)
-    :size: size of the server to be generated
-    :lower_bound: the same lower bound is used for each dimension of a point
-    :upper_bound: ^
-    
-    Generate a list of vectors randomly.
+    :domain: (lower, upper)[] for each dimension
     '''
-    server = []
+    return [random.uniform(lower, upper) for lower, upper in domain]
 
-    for _ in range(server_size):
-        vector = [random.uniform(lower_bound, upper_bound) for _ in range(dimension)]
-        server.append(vector)
+def generate_server_from_random(server_size, domain):
+    '''
+    :server_size: size of the server to be generated
+    :domain: (lower, upper)[] for each dimension
+    '''
+    return [generate_point_from_random(domain) for _ in range(server_size)]
+
+
+def load_server_from_gowalla_dataset(domain):
+    '''
+    Load dataset from https://snap.stanford.edu/data/loc-gowalla.html
+    '''
+    # load data
+    df = pd.read_csv('../data/loc-gowalla_totalCheckins.txt', sep='\t', header=None)
+    df.columns = ['userid','timestamp','latitude','longitude','spotid']
+
+    # select only latitude and longitude
+    df = df[['latitude', 'longitude']]
+
+    # choose only points between the latitude and longitude range
+    lat_min, lat_max = domain[0]
+    lon_min, lon_max = domain[1]
+    df = df[(df['latitude'] > lat_min) & (df['latitude'] < lat_max) & (df['longitude'] > lon_min) & (df['longitude'] < lon_max)]
+
+    # convert df to list
+    server = list(df.itertuples(index=False, name=None))
 
     return server
 
-def generate_client_from_random(dimension, upper_bound, lower_bound=0):
-    '''
-    :dimension: dimension of the client query (e.g., the dimension of a point on the map is 2)
-    :lower_bound: the same lower bound is used for each dimension of a point
-    :upper_bound: ^
-    '''
-    return [random.uniform(lower_bound, upper_bound) for _ in range(dimension)]
+def create_server(config):
+    if config.dataset == Dataset.RANDOM:
+        server = generate_server_from_random(server_size=config.server_size, domain=config.domain)
+
+    elif config.dataset == Dataset.GOWALLA:
+        server = load_server_from_gowalla_dataset(domain=config.domain)
+    
+    return server
