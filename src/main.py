@@ -19,7 +19,7 @@ if __name__ == '__main__':
     # ------------------------ INITIALIZE DATAFRAME AND CONFIG -------------------------
     # ----------------------------------------------------------------------------------
 
-    config = density_config_3
+    config = density_config_6
     
     raw_df = pd.DataFrame(columns=[
         # --- experiment settings ---
@@ -92,12 +92,12 @@ if __name__ == '__main__':
                     for scheduler in config.scheduler_type_to_schedulers[scheduler_type]:
 
                         # DP-TT-CMP search
-                        cmp_nn, cmp_eps_lst, cmp_eps_geo_lst  = search_dptt(client=client, server_tree=dptt_server_tree, early_stopping_level=early_stopping_level, scheduler=scheduler)
+                        cmp_nn, cmp_eps_lst, cmp_eps_geo_lst = search_dptt(client=client, server_tree=dptt_server_tree, early_stopping_level=early_stopping_level, scheduler=scheduler)
                         eps_cmp = calculate_adaptive_eps(eps_lst=cmp_eps_lst, delta=1/config.server_size)
                         eps_geo_cmp = sum(cmp_eps_geo_lst)
 
-                        # # L-SRR search
-                        # lsrr_nn = search_lsrr(client=client, server_tree=server_tree, eps=eps_cmp, k=len(cmp_nn), config.domain=SERVER_config.domain)
+                        # L-SRR search
+                        lsrr_nn = search_lsrr(client=client, server_tree=server_tree, eps=eps_cmp, k=len(cmp_nn), domain=config.domain)
 
                         # Laplace search, set the k-val (return size) same as return size of DP-TT search
                         laplace_nn = search_laplace(client=client, server_tree=server_tree, geo_eps=eps_cmp / config.client_sensitivity, k=len(cmp_nn))
@@ -123,19 +123,19 @@ if __name__ == '__main__':
                                 'precision': calculate_precision(retrieved=cmp_nn, relevant=nn_within_radius), 
                                 'recall': calculate_recall(retrieved=cmp_nn, relevant=nn_within_radius),
                             },
-                            # # --- L-SRR ---
-                            # {
-                            #     # --- experiment settings ---
-                            #     'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type,
-                            #     'geo_eps': None, 'eps': eps_cmp, 'method': 'L-SRR', 'return_size': len(cmp_nn),
+                            # --- L-SRR ---
+                            {
+                                # --- experiment settings ---
+                                'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type,
+                                'geo_eps': None, 'eps': eps_cmp, 'method': 'L-SRR', 'return_size': len(cmp_nn),
 
 
-                            #     # --- evaluation metrics ---
-                            #     'raw_acc': calculate_top_k_accuracy(retrieved=lsrr_nn, top_k_relevant=top_1_nn), 
-                            #     'top_5_acc': calculate_top_k_accuracy(retrieved=lsrr_nn, top_k_relevant=top_5_nn), 
-                            #     'precision': calculate_precision(retrieved=lsrr_nn, relevant=nn_within_radius), 
-                            #     'recall': calculate_recall(retrieved=lsrr_nn, relevant=nn_within_radius),
-                            # },
+                                # --- evaluation metrics ---
+                                'raw_acc': calculate_top_k_accuracy(retrieved=lsrr_nn, top_k_relevant=top_1_nn), 
+                                'top_5_acc': calculate_top_k_accuracy(retrieved=lsrr_nn, top_k_relevant=top_5_nn), 
+                                'precision': calculate_precision(retrieved=lsrr_nn, relevant=nn_within_radius), 
+                                'recall': calculate_recall(retrieved=lsrr_nn, relevant=nn_within_radius),
+                            },
                             # --- LAPLACE ---
                             {
                                 # --- experiment settings ---

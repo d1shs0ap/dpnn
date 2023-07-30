@@ -128,9 +128,9 @@ def search_lsrr(client, server_tree, eps, k, domain):
 
     To sample a point using L-SRR, we
         0. Calculate constants
-        1. Sample a group from a unit square
-        2. Sample a point uniformly from given group
-        3. Scale and translate the unit square to our rectangle
+        1. Sample a group
+        2. Sample a point from given group in a unit square
+        3. Scale and translate the unit square to the domain (i.e., a rectangle)
     
     Note that here we don't calculate the exact group size but instead relative group sizes, treating |G_1| = 1
     '''
@@ -168,7 +168,7 @@ def search_lsrr(client, server_tree, eps, k, domain):
         selected_group = random.choices(groups, weights=group_weights)
         return selected_group[0]
     
-    def sample_point_within_group(group):
+    def sample_point_within_group(group, client):
         '''
         Given the selected group, sample a point uniformly within the group
         '''
@@ -198,7 +198,7 @@ def search_lsrr(client, server_tree, eps, k, domain):
         
         # one "unit" in this group = domain / # of pieces we are splitting the domain into
         unit_length = 1 / 2 ** ((m - 1) - group)
-        # which squareis the client in?
+        # which square is the client in?
         bounds = calculate_bounds(client, unit_length)
         
         # sample client from the Group's bounds with equal probability
@@ -219,6 +219,7 @@ def search_lsrr(client, server_tree, eps, k, domain):
 
     # 0. Calculate constants
     dimension = len(client)
+    
     if dimension == 1:
         m = round(math.log2(server_tree.height()))
     elif dimension == 2:
@@ -231,11 +232,18 @@ def search_lsrr(client, server_tree, eps, k, domain):
     a_max = c * a_min
     delta = (a_max - a_min) / (m - 1) # (3) in L-SRR paper
     
+    
     # 1. Sample a group
     group = sample_group(a_max, delta)
 
-    # 2. Sample a point uniformly from given group
-    noised_client = sample_point_within_group(group)
+    
+    # 2. Sample a point uniformly from given group in a rectangle
+    client_scaled_to_unit_square = [(val - lower) / (upper - lower) for val, (lower, upper) in zip(client, domain)]
+    noised_client_scaled_to_unit_square = sample_point_within_group(group, client_scaled_to_unit_square)
+
+    
+    # 3. Transform the unit square to the domain
+    noised_client = [lower + val * (upper - lower) for val, (lower, upper) in zip(noised_client_scaled_to_unit_square, domain)]
 
     # NN search using the noised point
     lsrr_nn_and_dists = server_tree.search_knn(noised_client, k)

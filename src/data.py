@@ -25,15 +25,15 @@ def load_server_from_gowalla_dataset(domain):
     Load dataset from https://snap.stanford.edu/data/loc-gowalla.html
     '''
     # load data
-    df = pd.read_csv('../data/loc-gowalla_totalCheckins.txt', sep='\t', header=None)
+    df = pd.read_csv('data/loc-gowalla_totalCheckins.txt', sep='\t', header=None)
     df.columns = ['userid','timestamp','latitude','longitude','spotid']
 
     # select only latitude and longitude
-    df = df[['latitude', 'longitude']]
+    df = df[['longitude', 'latitude']]
 
     # choose only points between the latitude and longitude range
-    lat_min, lat_max = domain[0]
-    lon_min, lon_max = domain[1]
+    lon_min, lon_max = domain[0]
+    lat_min, lat_max = domain[1]
     df = df[(df['latitude'] > lat_min) & (df['latitude'] < lat_max) & (df['longitude'] > lon_min) & (df['longitude'] < lon_max)]
 
     # convert df to list
