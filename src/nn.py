@@ -33,7 +33,10 @@ def search_laplace(client, server_tree, geo_eps, k):
     '''
 
     # add noise
-    noised_client = list(map(lambda x, y: x + y, client, random_laplace_noise(geo_eps)))
+    if geo_eps == float('inf'):
+        noised_client = client
+    else:
+        noised_client = list(map(lambda x, y: x + y, client, random_laplace_noise(geo_eps)))
 
     # retrieve nearest neighbours
     ldp_nn_and_dists = server_tree.search_knn(noised_client, k)

@@ -6,6 +6,7 @@ from tqdm import tqdm
 import os
 import pickle
 
+from collections import defaultdict
 from data import *
 from nn import *
 from evaluation import *
@@ -19,7 +20,7 @@ if __name__ == '__main__':
     # ------------------------ INITIALIZE DATAFRAME AND CONFIG -------------------------
     # ----------------------------------------------------------------------------------
 
-    config = density_config_6
+    config = leaf_config_4
     
     raw_df = pd.DataFrame(columns=[
         # --- experiment settings ---
@@ -105,6 +106,23 @@ if __name__ == '__main__':
                         # Laplace search with equivalent geo-indistinguishibility epsilon
                         laplace_geo_nn = search_laplace(client=client, server_tree=server_tree, geo_eps=eps_geo_cmp, k=len(cmp_nn))
 
+                        # DP-TT-LEAF search (traverse all the way down to leaf node, then true nn search)
+                        leaf_node, leaf_eps_lst, leaf_eps_geo_lst = search_dptt(client=client, server_tree=dptt_server_tree, early_stopping_level=1, scheduler=scheduler)
+                        eps_leaf = calculate_adaptive_eps(eps_lst=leaf_eps_lst, delta=1/config.server_size)
+                        eps_geo_leaf = sum(leaf_eps_geo_lst)
+
+                        leaf_nn = search_laplace(client=leaf_node[0].data, server_tree=server_tree, geo_eps=float('inf'), k=len(cmp_nn))
+
+                        # DP-TT-INTERSECTION search
+                        intersection_nn = defaultdict(int)
+                        for nn in cmp_nn:
+                            nn_of_nn = search_laplace(client=nn.data, server_tree=server_tree, geo_eps=float('inf'), k=len(cmp_nn))
+                            for nn in nn_of_nn:
+                                intersection_nn[tuple(nn.data)] += 1
+                        
+                        intersection_nn = list(intersection_nn.items())
+                        intersection_nn.sort(key=lambda x: x[1], reverse=True)
+                        intersection_nn = [coordinates for coordinates, count in intersection_nn[:len(cmp_nn)]]
 
                         # -----------------------------------------------------------------------------
                         # ------------------------------ EVALUATION -----------------------------------
@@ -160,6 +178,30 @@ if __name__ == '__main__':
                                 'top_5_acc': calculate_top_k_accuracy(retrieved=laplace_geo_nn, top_k_relevant=top_5_nn), 
                                 'precision': calculate_precision(retrieved=laplace_geo_nn, relevant=nn_within_radius), 
                                 'recall': calculate_recall(retrieved=laplace_geo_nn, relevant=nn_within_radius),
+                            },
+                            # --- DP-TT-LEAF ---
+                            {
+                                # --- experiment settings ---
+                                'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type, 
+                                'geo_eps': eps_geo_leaf, 'eps': eps_leaf, 'method': 'DP-TT-LEAF', 'return_size': len(cmp_nn),
+
+                                # --- evaluation metrics ---
+                                'raw_acc': calculate_top_k_accuracy(retrieved=leaf_nn, top_k_relevant=top_1_nn), 
+                                'top_5_acc': calculate_top_k_accuracy(retrieved=leaf_nn, top_k_relevant=top_5_nn), 
+                                'precision': calculate_precision(retrieved=leaf_nn, relevant=nn_within_radius), 
+                                'recall': calculate_recall(retrieved=leaf_nn, relevant=nn_within_radius),
+                            },
+                            # --- DP-TT-INTERSECTION ---
+                            {
+                                # --- experiment settings ---
+                                'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type, 
+                                'geo_eps': eps_geo_cmp, 'eps': eps_cmp, 'method': 'DP-TT-INTERSECTION', 'return_size': len(cmp_nn),
+
+                                # --- evaluation metrics ---
+                                'raw_acc': calculate_top_k_accuracy(retrieved=intersection_nn, top_k_relevant=top_1_nn), 
+                                'top_5_acc': calculate_top_k_accuracy(retrieved=intersection_nn, top_k_relevant=top_5_nn), 
+                                'precision': calculate_precision(retrieved=intersection_nn, relevant=nn_within_radius), 
+                                'recall': calculate_recall(retrieved=intersection_nn, relevant=nn_within_radius),
                             },
                         ])
 
