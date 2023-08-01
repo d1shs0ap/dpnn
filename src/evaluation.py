@@ -12,7 +12,6 @@ def calculate_retrieved_and_relevant(retrieved, relevant):
 
     Calculates the number of results that are both retrieved and relevant.
     '''
-    print(len(retrieved), len(relevant))
     intersection = extract_location_set(retrieved) & extract_location_set(relevant)
     return len(intersection)
 
