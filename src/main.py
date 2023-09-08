@@ -20,7 +20,7 @@ if __name__ == '__main__':
     # ------------------------ INITIALIZE DATAFRAME AND CONFIG -------------------------
     # ----------------------------------------------------------------------------------
 
-    config = density_config_6
+    config = density_config_3
     
     raw_df = pd.DataFrame(columns=[
         # --- experiment settings ---
@@ -89,11 +89,11 @@ if __name__ == '__main__':
             metadata['number_of_nn_within_radius'].append(len(nn_within_radius))
 
             for early_stopping_level, early_stopping_constant in config.early_stopping_levels.items():
-                for scheduler_type in config.scheduler_type_to_schedulers:
-                    for scheduler in config.scheduler_type_to_schedulers[scheduler_type]:
+                for scheduler_type in config.scheduler_types:
+                    for eps in config.epsilons:
 
                         # DP-TT-CMP and DIS
-                        cmp_nn, cmp_eps_lst, cmp_eps_geo_lst = search_dptt(client=client, server_tree=dptt_server_tree, early_stopping_level=early_stopping_level, early_stopping_constant=early_stopping_constant, scheduler=scheduler)
+                        cmp_nn, cmp_eps_lst, cmp_eps_geo_lst = search_dptt(client=client, server_tree=dptt_server_tree, early_stopping_level=early_stopping_level, early_stopping_constant=early_stopping_constant, scheduler=scheduler_type(eps))
                         eps_cmp = calculate_adaptive_eps(eps_lst=cmp_eps_lst, delta=1/config.server_size)
                         eps_geo_cmp = sum(cmp_eps_geo_lst)
 
@@ -115,8 +115,8 @@ if __name__ == '__main__':
                             # --- DP-TT-CMP ---
                             {
                                 # --- experiment settings ---
-                                'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type, 
-                                'geo_eps': eps_geo_cmp, 'eps': eps_cmp, 'method': 'DP-TT-CMP', 'return_size': len(cmp_nn),
+                                'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type.__name__, 
+                                'geo_eps': eps_geo_cmp, 'eps_cmp': eps_cmp, 'base_eps': eps, 'method': 'DP-TT-CMP', 'return_size': len(cmp_nn),
 
                                 # --- evaluation metrics ---
                                 'raw_acc': calculate_top_k_accuracy(retrieved=cmp_nn, top_k_relevant=top_1_nn), 
@@ -127,8 +127,8 @@ if __name__ == '__main__':
                             # --- L-SRR ---
                             {
                                 # --- experiment settings ---
-                                'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type,
-                                'geo_eps': None, 'eps': eps_cmp, 'method': 'L-SRR', 'return_size': len(cmp_nn),
+                                'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type.__name__,
+                                'geo_eps': None, 'eps_cmp': eps_cmp, 'base_eps': eps, 'method': 'L-SRR', 'return_size': len(cmp_nn),
 
 
                                 # --- evaluation metrics ---
@@ -140,8 +140,8 @@ if __name__ == '__main__':
                             # --- LAPLACE ---
                             {
                                 # --- experiment settings ---
-                                'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type, 
-                                'geo_eps': eps_cmp / config.client_sensitivity, 'eps': eps_cmp, 'method': 'LAPLACE', 'return_size': len(cmp_nn),
+                                'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type.__name__, 
+                                'geo_eps': eps_cmp / config.client_sensitivity, 'eps_cmp': eps_cmp, 'base_eps': eps, 'method': 'LAPLACE', 'return_size': len(cmp_nn),
 
 
                                 # --- evaluation metrics ---
@@ -153,8 +153,8 @@ if __name__ == '__main__':
                             # --- LAPLACE GEO ---
                             {
                                 # --- experiment settings ---
-                                'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type, 
-                                'geo_eps': eps_geo_cmp, 'eps': eps_geo_cmp * config.client_sensitivity, 'method': 'LAPLACE-GEO', 'return_size': len(cmp_nn),
+                                'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type.__name__, 
+                                'geo_eps': eps_geo_cmp, 'eps_cmp': eps_geo_cmp * config.client_sensitivity, 'base_eps': eps, 'method': 'LAPLACE-GEO', 'return_size': len(cmp_nn),
 
                                 # --- evaluation metrics ---
                                 'raw_acc': calculate_top_k_accuracy(retrieved=laplace_geo_nn, top_k_relevant=top_1_nn), 

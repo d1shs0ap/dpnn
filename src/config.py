@@ -38,10 +38,6 @@ class Config:
         return self.server_area / self.server_size * self.true_radius_constant
     
     @property
-    def scheduler_type_to_schedulers(self):
-        return {scheduler_type.__name__: [scheduler_type(eps) for eps in self.epsilons] for scheduler_type in self.scheduler_types}
-    
-    @property
     def output_dir(self):
         return f'graphs/{self.experiment_series}/size_{self.server_size}_domain_{int(self.server_area)}'
 
