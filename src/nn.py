@@ -1,7 +1,6 @@
 # contains differentially private methods to help run the nearest neighbour algorithm
 import random
 import math
-import scipy
 from GeoPrivacy.mechanism import random_laplace_noise
 
 
@@ -49,12 +48,13 @@ def search_laplace(client, server_tree, geo_eps, k):
 # ------------------------------ DP-TT ------------------------------
 
 
-def search_dptt(client, server_tree, early_stopping_level, scheduler):
+def search_dptt(client, server_tree, early_stopping_level, early_stopping_constant, scheduler):
     '''
     :client: query value
     :server_tree: the database values stored in a kdtree, with nodes pushed down for DP-TT
     :dimension: dimension of query / server value
     :early_stopping_level: stop this number of levels before the leaf
+    :early_stopping_constant: multiply the node_eps by this constant
     :scheduler: level -> eps
 
     DP-TT-CMP algorithm, returns (nearest neighbours lst, total epsilon spent)
@@ -92,14 +92,11 @@ def search_dptt(client, server_tree, early_stopping_level, scheduler):
             nn.append(node)
             continue
         
-        # tree w/. one node has height = 1, so if early stopping level = 1, we split at second last layer
         if node.height() > early_stopping_level:
             axis = level % dimension
 
-            # -------------------------------- DP-TT CMP --------------------------------
-            # if cmp:
-            node_eps = scheduler(level)
-            noised_choose_right = apply_exponential_mechanism_cmp(client, node, axis, eps=node_eps)
+            node_eps = early_stopping_constant * scheduler(level)
+            noised_choose_right = apply_exponential_mechanism_cmp(client, node, axis, node_eps)
 
             # traverse down the exp-mechanism-randomized path
             if noised_choose_right:
