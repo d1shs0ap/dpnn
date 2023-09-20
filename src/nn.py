@@ -48,13 +48,13 @@ def search_laplace(client, server_tree, geo_eps, k):
 # ------------------------------ DP-TT ------------------------------
 
 
-def search_dptt(client, server_tree, early_stopping_level, early_stopping_constant, scheduler):
+def search_dptt(client, server_tree, early_stopping_level, early_stopping_constant, sparsity_constant, scheduler):
     '''
     :client: query value
     :server_tree: the database values stored in a kdtree, with nodes pushed down for DP-TT
-    :dimension: dimension of query / server value
     :early_stopping_level: stop this number of levels before the leaf
     :early_stopping_constant: multiply the node_eps by this constant
+    :sparsity_constant: to keep epsilons of different densities with the same total epsilon
     :scheduler: level -> eps
 
     DP-TT-CMP algorithm, returns (nearest neighbours lst, total epsilon spent)
@@ -95,7 +95,7 @@ def search_dptt(client, server_tree, early_stopping_level, early_stopping_consta
         if node.height() > early_stopping_level:
             axis = level % dimension
 
-            node_eps = early_stopping_constant * scheduler(level)
+            node_eps = sparsity_constant * early_stopping_constant * scheduler(level)
             noised_choose_right = apply_exponential_mechanism_cmp(client, node, axis, node_eps)
 
             # traverse down the exp-mechanism-randomized path
