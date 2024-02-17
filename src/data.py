@@ -27,14 +27,18 @@ def load_server_from_gowalla_dataset(domain):
     # load data
     df = pd.read_csv('data/loc-gowalla_totalCheckins.txt', sep='\t', header=None)
     df.columns = ['userid','timestamp','latitude','longitude','spotid']
+    print(len(df))
 
-    # select only latitude and longitude
+    # select only latitude and longitude, and drop duplicates
+    df = df.drop_duplicates(subset=['spotid'], keep='first')
     df = df[['longitude', 'latitude']]
+    df = df.drop_duplicates()
 
     # choose only points between the latitude and longitude range
     lon_min, lon_max = domain[0]
     lat_min, lat_max = domain[1]
     df = df[(df['latitude'] > lat_min) & (df['latitude'] < lat_max) & (df['longitude'] > lon_min) & (df['longitude'] < lon_max)]
+    print(len(df))
 
     # convert df to list
     server = list(df.itertuples(index=False, name=None))

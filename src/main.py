@@ -13,17 +13,18 @@ from evaluation import *
 from config import *
 from budget import *
 
-
 if __name__ == '__main__':
+
 
     # ----------------------------------------------------------------------------------
     # ------------------------ INITIALIZE DATAFRAME AND CONFIG -------------------------
     # ----------------------------------------------------------------------------------
 
-    # config = density_config_5
-    config = one_dim_config_5
-    # config = gowalla_austin_config
+    config = density_config_5
+    # config = one_dim_config_5
+    # config = gowalla_sf_config
     
+
     raw_df = pd.DataFrame(columns=[
         # --- experiment settings ---
         'trial',
@@ -41,12 +42,13 @@ if __name__ == '__main__':
     metadata = {
         'dimension': len(config.domain),
         'server_size': config.server_size,
-        'config.domain': config.domain,
-        'config.client_batch_size': config.client_batch_size,
-        'config.client_sensitivity': config.client_sensitivity,
+        'domain': config.domain,
+        'client_batch_size': config.client_batch_size,
+        'client_sensitivity': config.client_sensitivity,
         'true_radius': int(math.sqrt(config.true_radius_squared)),
-        'config.early_stopping_levels': config.early_stopping_levels,
+        'early_stopping_levels': config.early_stopping_levels,
         'number_of_nn_within_radius': [],
+        'epsilons': config.epsilons,
     }
 
     # -----------------------------------------------------------------------------
@@ -109,10 +111,12 @@ if __name__ == '__main__':
                         # Laplace search vs. DP-TT-DIS
                         laplace_geo_nn = search_laplace(client=client, server_tree=server_tree, geo_eps=eps_geo_cmp, k=len(cmp_nn))
 
-                        # L-SRR search vs. DP-TT-CMP if dimension is 2
+                        # L-SRR search and Square Mechanism vs. DP-TT-CMP if dimension is 2
                         if len(config.domain) == 2:
                             lsrr_nn = search_lsrr(client=client, server_tree=server_tree, eps=eps_cmp, k=len(cmp_nn), domain=config.domain)
 
+                            sm_nn = search_sm(client=client, server_tree=server_tree, eps=eps_cmp, k=len(cmp_nn), domain=config.domain)
+                        
                         # -----------------------------------------------------------------------------
                         # ------------------------------ EVALUATION -----------------------------------
                         # -----------------------------------------------------------------------------
@@ -158,7 +162,7 @@ if __name__ == '__main__':
                         ]
 
                         if len(config.domain) == 2:
-                            results.append(
+                            results.extend([
                                 # --- L-SRR ---
                                 {
                                     # --- experiment settings ---
@@ -172,7 +176,20 @@ if __name__ == '__main__':
                                     'precision': calculate_precision(retrieved=lsrr_nn, relevant=nn_within_radius), 
                                     'recall': calculate_recall(retrieved=lsrr_nn, relevant=nn_within_radius),
                                 },
-                            )
+                                # --- Square Mechanism ---
+                                {
+                                    # --- experiment settings ---
+                                    'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type.__name__,
+                                    'geo_eps': None, 'eps_cmp': eps_cmp, 'base_eps': eps, 'method': 'SM', 'return_size': len(cmp_nn),
+
+
+                                    # --- evaluation metrics ---
+                                    'raw_acc': calculate_top_k_accuracy(retrieved=sm_nn, top_k_relevant=top_1_nn), 
+                                    'top_5_acc': calculate_top_k_accuracy(retrieved=sm_nn, top_k_relevant=top_5_nn), 
+                                    'precision': calculate_precision(retrieved=sm_nn, relevant=nn_within_radius), 
+                                    'recall': calculate_recall(retrieved=sm_nn, relevant=nn_within_radius),
+                                },
+                            ])
                         
                         results_df =  pd.DataFrame(results)
                         raw_df = pd.concat([raw_df, results_df], ignore_index=True)

@@ -1,6 +1,7 @@
 # contains differentially private methods to help run the nearest neighbour algorithm
 import random
 import math
+import numpy as np
 from GeoPrivacy.mechanism import random_laplace_noise
 
 
@@ -38,10 +39,7 @@ def search_laplace(client, server_tree, geo_eps, k):
         noised_client = list(map(lambda x, y: x + y, client, random_laplace_noise(geo_eps)))
 
     # retrieve nearest neighbours
-    ldp_nn_and_dists = server_tree.search_knn(noised_client, k)
-    ldp_nn = list(map(lambda node_and_dist: node_and_dist[0], ldp_nn_and_dists))
-
-    return ldp_nn
+    return search_true(noised_client, server_tree, k)
 
 
 
@@ -246,7 +244,105 @@ def search_lsrr(client, server_tree, eps, k, domain):
     noised_client = [lower + val * (upper - lower) for val, (lower, upper) in zip(noised_client_scaled_to_unit_square, domain)]
 
     # NN search using the noised point
-    lsrr_nn_and_dists = server_tree.search_knn(noised_client, k)
-    lsrr_nn = list(map(lambda node_and_dist: node_and_dist[0], lsrr_nn_and_dists))
+    return search_true(noised_client, server_tree, k)
 
-    return lsrr_nn
+
+# ------------------------------ Square Mechanism ------------------------------
+
+def truncate(data, min_, max_):
+    """
+    Args:
+        data: data to truncate
+        min_: the minimum value used for truncation
+        max_: the maximum value used for truncation
+    Returns:
+        The truncated data where each value lie between input `min_` and input `max_`
+    """
+    return np.maximum(np.minimum(max_, data), min_)
+
+
+def compute_w_sm(eps, domain):
+    '''
+    Compute optimal square side length by solving equation (9)
+    '''
+    l_x = domain[0][1] - domain[0][0]
+    l_y = domain[1][1] - domain[1][0]
+
+    coeff_list = np.zeros(6)
+    l_x_square = l_x ** 2
+    l_y_square = l_y ** 2
+    eps_term = np.exp(eps) - 1
+    coeff_list[0] = -4 * l_x_square * l_y_square * (l_x_square + l_y_square)
+    coeff_list[2] = 8 * l_x_square * l_y_square
+    coeff_list[3] = 5 * l_x * l_y * (l_x + l_y)
+    coeff_list[4] = 4 * l_x * l_y * eps_term
+    coeff_list[5] = 3 * eps_term * (l_x + l_y)
+    coeff_list = np.flip(coeff_list)
+    roots = np.roots(coeff_list)
+    real_roots = np.compress(np.isreal(roots), roots)
+    pos_roots = np.compress(real_roots > 0, real_roots)
+    assert len(pos_roots) == 1
+    return truncate(np.real(pos_roots[0]), 0, min(l_x, l_y))
+
+
+def compute_alpha_sm(eps, domain, w):
+    '''
+    Compute alpha. Note that w represents the optimal side length computed above
+    '''
+    l_x = domain[0][1] - domain[0][0]
+    l_y = domain[1][1] - domain[1][0]
+    return 1 / (l_x * l_y + (np.exp(eps) - 1) * w ** 2)
+    
+
+def calc_square_center(client, domain, w):
+    """
+    :param t: the input data to perturb
+    :param out_domain: the output domain.
+    :param b: the side length of the square region
+    :return: the centers of the square regions
+    """
+    domain_u_bound = np.array([domain[0][1], domain[1][1]]).reshape(1, 2)
+    domain_l_bound = np.array([domain[0][0], domain[1][0]]).reshape(1, 2)
+    center_upper_bound = domain_u_bound - w / 2
+    center_lower_bound = domain_l_bound + w / 2
+    if not np.all(center_upper_bound - center_lower_bound >= 0):
+        print('t = {}'.format(client))
+        print('out_domain = {}'.format(domain))
+        print('side_length = {}'.format(w))
+        print('domain_u_bound = {}'.format(domain_u_bound))
+        print('domain_l_bound = {}'.format(domain_l_bound))
+        print('center_upper_bound = {}'.format(center_upper_bound))
+        print('center_lower_bound = {}'.format(center_lower_bound))
+        raise Exception('not all(center_upper_bound - center_lower_bound >= 0)')
+    center = np.array(client).reshape(1, 2)
+    center = np.minimum(center, center_upper_bound)
+    center = np.maximum(center, center_lower_bound)
+    return center
+
+
+def sm(client, eps, domain):
+    '''
+    An implementation of the square mechanism paper(https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9458926)'s Algorithm 1
+
+    1. Calculate optimal side length and alpha (done once for a domain)
+    2. Compute the center of the square
+    3. Sample x from [0, 1]
+    4. if x ≤ 4αb1b2 = αl1l2, sample uniformly from D
+    5. otherwise, sample from the square
+    '''
+
+    w = compute_w_sm(eps, domain)
+    alpha = compute_alpha_sm(eps, domain, w)
+    center = calc_square_center(client, domain, w)
+
+    square_sample = np.random.uniform(low=-w/2, high=w/2, size=center.shape) + center
+    domain_sample = np.random.uniform(low=np.array([domain[0][0], domain[1][0]]), high=np.array([domain[0][1], domain[1][1]]), size=center.shape)
+
+    is_domain_sample = np.random.binomial(n=1, p=alpha * (domain[0][1] - domain[0][0]) * (domain[1][1] - domain[1][0]))
+    return np.where(is_domain_sample, domain_sample, square_sample)
+
+
+def search_sm(client, server_tree, eps, k, domain):
+    noised_client = list(sm(client, eps, domain))[0]
+    return search_true(noised_client, server_tree, k)
+    
