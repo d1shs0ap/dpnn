@@ -32,7 +32,7 @@ if __name__ == '__main__':
         'early_stopping_level', 'scheduler_type', # DP-TT
         'eps_cmp', # total eps
         'base_eps',
-        'eps',
+        'geo_eps', # eps / sensitivity
         'method',
         'return_size',
         'mse',
@@ -82,50 +82,31 @@ if __name__ == '__main__':
 
             client = generate_point_from_random(domain=config.domain)
 
-
             # --------------------------------------------------------------------------------------
             # ------------------------------ SEARCH NEAREST NEIGHBOUR ------------------------------
             # --------------------------------------------------------------------------------------
 
-            # find top 1 / 5 nearest neighbours of client
-            top_1_nn = search_true(client, server_tree, 1)
-            top_5_nn = search_true(client, server_tree, 5)
-            
-            # find points in server within a certain radius of client
-            nn_within_radius = search_within_radius(client, server_tree, config.true_radius_squared)
-            # if there's nothing around, skip this iteration
-            if len(nn_within_radius) == 0: continue
-            # update metadata
-            metadata['number_of_nn_within_radius'].append(len(nn_within_radius))
-
             for early_stopping_level, early_stopping_constant in config.early_stopping_levels.items():
                 for scheduler_type in config.scheduler_types:
-                    for i, eps in enumerate(config.epsilons):
+                    for eps in config.epsilons:
 
-                        # DP-TT-CMP and DIS
+                        # DP-TT-CMP
                         cmp_nn, cmp_eps_lst, cmp_eps_geo_lst = search_dptt(client=client, server_tree=dptt_server_tree, early_stopping_level=early_stopping_level, early_stopping_constant=early_stopping_constant, sparsity_constant = config.sparsity_constant, scheduler=scheduler_type(eps))
                         eps_cmp = calculate_adaptive_eps(eps_lst=cmp_eps_lst, delta=1/config.server_size)
-                        # eps_geo_cmp = sum(cmp_eps_geo_lst)
+                        eps_geo_cmp = sum(cmp_eps_geo_lst)
                         cmp_nn = [node.data for node in cmp_nn]
 
                         # Laplace search vs. DP-TT-CMP
-
-                        laplace_eps = config.laplace_epsilons[i]
+                        laplace_eps = eps_cmp * 0.5
                         laplace_noised_client = sample_laplace(client=client, geo_eps=laplace_eps / config.client_sensitivity)
-                        laplace_nn = search_true(client=laplace_noised_client, server_tree=server_tree, k=len(cmp_nn))
-
-                        # # Laplace search vs. DP-TT-DIS
-                        # laplace_geo_nn = search_laplace(client=client, server_tree=server_tree, geo_eps=eps_geo_cmp, k=len(cmp_nn))
 
                         # L-SRR search and Square Mechanism vs. DP-TT-CMP if dimension is 2
                         if len(config.domain) == 2:
-                            # lsrr_eps = config.lsrr_epsilons[i]
-                            # lsrr_noised_client = sample_lsrr(client=client, server_tree=server_tree, eps=lsrr_eps, domain=config.domain)
-                            # lsrr_nn = search_true(client=lsrr_noised_client, server_tree=server_tree, k=len(cmp_nn))
+                            lsrr_eps = eps_cmp * 3
+                            lsrr_noised_client = sample_lsrr(client=client, server_tree=server_tree, eps=lsrr_eps, domain=config.domain)
 
-                            sm_eps = config.sm_epsilons[i]
+                            sm_eps = eps_cmp * 0.1
                             sm_noised_client = sample_sm(client=client, eps=sm_eps, domain=config.domain)
-                            sm_nn = search_true(client=sm_noised_client, server_tree=server_tree, k=len(cmp_nn))
                         
                         # -----------------------------------------------------------------------------
                         # ------------------------------ EVALUATION -----------------------------------
@@ -137,69 +118,41 @@ if __name__ == '__main__':
                                 # --- experiment settings ---
                                 'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type.__name__, 
                                 'eps': eps_cmp, 'eps_cmp': eps_cmp, 'base_eps': eps, 'method': 'DP-TT-CMP', 'return_size': len(cmp_nn),
-                                'mse': np.linalg.norm(np.array(client) - np.mean(np.array(cmp_nn), axis=0)),
-
+                                
                                 # --- evaluation metrics ---
-                                'raw_acc': calculate_top_k_accuracy(retrieved=cmp_nn, top_k_relevant=top_1_nn), 
-                                'top_5_acc': calculate_top_k_accuracy(retrieved=cmp_nn, top_k_relevant=top_5_nn), 
-                                'precision': calculate_precision(retrieved=cmp_nn, relevant=nn_within_radius), 
-                                'recall': calculate_recall(retrieved=cmp_nn, relevant=nn_within_radius),
+                                'mse': np.linalg.norm(np.array(client) - np.mean(np.array(cmp_nn), axis=0)),
                             },
                             # --- LAPLACE ---
                             {
                                 # --- experiment settings ---
                                 'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type.__name__, 
                                 'eps': laplace_eps, 'eps_cmp': eps_cmp, 'base_eps': eps, 'method': 'LAPLACE', 'return_size': len(cmp_nn),
-                                'mse': np.linalg.norm(np.array(client) - np.array(laplace_noised_client)),
 
                                 # --- evaluation metrics ---
-                                'raw_acc': calculate_top_k_accuracy(retrieved=laplace_nn, top_k_relevant=top_1_nn), 
-                                'top_5_acc': calculate_top_k_accuracy(retrieved=laplace_nn, top_k_relevant=top_5_nn), 
-                                'precision': calculate_precision(retrieved=laplace_nn, relevant=nn_within_radius), 
-                                'recall': calculate_recall(retrieved=laplace_nn, relevant=nn_within_radius),
+                                'mse': np.linalg.norm(np.array(client) - np.array(laplace_noised_client)),
                             },
-                            # # --- LAPLACE GEO ---
-                            # {
-                            #     # --- experiment settings ---
-                            #     'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type.__name__, 
-                            #     'geo_eps': eps_geo_cmp, 'eps_cmp': eps_geo_cmp * config.client_sensitivity, 'base_eps': eps, 'method': 'LAPLACE-GEO', 'return_size': len(cmp_nn),
-
-                            #     # --- evaluation metrics ---
-                            #     'raw_acc': calculate_top_k_accuracy(retrieved=laplace_geo_nn, top_k_relevant=top_1_nn), 
-                            #     'top_5_acc': calculate_top_k_accuracy(retrieved=laplace_geo_nn, top_k_relevant=top_5_nn), 
-                            #     'precision': calculate_precision(retrieved=laplace_geo_nn, relevant=nn_within_radius), 
-                            #     'recall': calculate_recall(retrieved=laplace_geo_nn, relevant=nn_within_radius),
-                            # },
                         ]
 
                         if len(config.domain) == 2:
                             results.extend([
-                                # # --- L-SRR ---
-                                # {
-                                #     # --- experiment settings ---
-                                #     'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type.__name__,
-                                #     'eps': lsrr_eps , 'eps_cmp': eps_cmp, 'base_eps': eps, 'method': 'L-SRR', 'return_size': len(cmp_nn),
-                                #     'mse': np.linalg.norm(np.array(client) - np.array(lsrr_noised_client)),
+                                # --- L-SRR ---
+                                {
+                                    # --- experiment settings ---
+                                    'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type.__name__,
+                                    'eps': lsrr_eps, 'eps_cmp': eps_cmp, 'base_eps': eps, 'method': 'L-SRR', 'return_size': len(cmp_nn),
 
 
-                                #     # --- evaluation metrics ---
-                                #     'raw_acc': calculate_top_k_accuracy(retrieved=lsrr_nn, top_k_relevant=top_1_nn), 
-                                #     'top_5_acc': calculate_top_k_accuracy(retrieved=lsrr_nn, top_k_relevant=top_5_nn), 
-                                #     'precision': calculate_precision(retrieved=lsrr_nn, relevant=nn_within_radius), 
-                                #     'recall': calculate_recall(retrieved=lsrr_nn, relevant=nn_within_radius),
-                                # },
+                                    # --- evaluation metrics ---
+                                    'mse': np.linalg.norm(np.array(client) - np.array(lsrr_noised_client)),
+                                },
                                 # --- Square Mechanism ---
                                 {
                                     # --- experiment settings ---
                                     'trial': client_trial, 'early_stopping_level': early_stopping_level, 'scheduler_type': scheduler_type.__name__,
                                     'eps': sm_eps, 'eps_cmp': eps_cmp, 'base_eps': eps, 'method': 'SM', 'return_size': len(cmp_nn),
-                                    'mse': np.linalg.norm(np.array(client) - np.array(sm_noised_client)),
 
                                     # --- evaluation metrics ---
-                                    'raw_acc': calculate_top_k_accuracy(retrieved=sm_nn, top_k_relevant=top_1_nn), 
-                                    'top_5_acc': calculate_top_k_accuracy(retrieved=sm_nn, top_k_relevant=top_5_nn), 
-                                    'precision': calculate_precision(retrieved=sm_nn, relevant=nn_within_radius), 
-                                    'recall': calculate_recall(retrieved=sm_nn, relevant=nn_within_radius),
+                                    'mse': np.linalg.norm(np.array(client) - np.array(sm_noised_client)),
                                 },
                             ])
                         

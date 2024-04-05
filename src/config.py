@@ -5,11 +5,14 @@ from data import Dataset
 class Config:
     def __init__(
         self,
-        domain = [(0, math.sqrt(10 ** 7)), (0, math.sqrt(10 ** 7))],
+        domain = [(0, 10 ** 3), (0, 10 ** 3)],
         server_size = 10 ** 5,
         client_batch_size = 500,
-        early_stopping_levels = {1: 1, 3: 1.15, 5: 1.34, 9: 1.96},
-        epsilons = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
+        early_stopping_levels = {1: 1, 3: 1, 5: 1, 7: 1},
+        epsilons = [3.5 + .8 * i for i in range(8)],
+        laplace_epsilons = [18 + 25 * i for i in range(8)],
+        lsrr_epsilons = [1, 2, 3, 4],
+        sm_epsilons = [5 + 1.5 * i for i in range(8)],
         scheduler_types = [constant],
         experiment_series = 'densities',
         dataset = Dataset.RANDOM,
@@ -26,6 +29,9 @@ class Config:
         self.dataset = dataset
         self.true_radius_constant = true_radius_constant
         self.sparsity_constant = sparsity_constant
+        self.laplace_epsilons = laplace_epsilons
+        self.lsrr_epsilons = lsrr_epsilons
+        self.sm_epsilons = sm_epsilons
 
     @property
     def client_sensitivity(self):
@@ -53,8 +59,10 @@ class Config:
 density_config_2 = Config(server_size = 10 ** 2, early_stopping_levels={1: 1, 3: 1.17, 5: 1.39, }, sparsity_constant = 2, epsilons=[0.5, 1, 2], domain = [(0, math.sqrt(10 ** 10)), (0, math.sqrt(10 ** 10))])
 density_config_3 = Config(server_size = 10 ** 3, early_stopping_levels={4: 1.25, 5: 1.3, 6: 1.5, 7: 2}, sparsity_constant = 2, epsilons=[0.1, 0.3, 0.7, 0.9])
 density_config_4 = Config(server_size = 10 ** 4, early_stopping_levels={1: 1, 3: 1.17, 5: 1.39, 9: 2.32}, sparsity_constant = 1.44)
-density_config_5 = Config(server_size = 10 ** 5, early_stopping_levels={1: 1, 3: 1.14, 5: 1.3, 9: 1.9}, sparsity_constant = 1.17)
-density_config_6 = Config(server_size = 10 ** 6, early_stopping_levels={1: 1, 3: 1.11, 5: 1.25, 9: 1.67}, sparsity_constant = 1)
+# density_config_5 = Config(server_size = 10 ** 5, early_stopping_levels={1: 1, 3: 1.14, 5: 1.3, 9: 1.9}, sparsity_constant = 1.17, client_batch_size=20)
+# density_config_6 = Config(server_size = 10 ** 6, early_stopping_levels={1: 1, 3: 1.11, 5: 1.25, 9: 1.67}, sparsity_constant = 1, client_batch_size=20)
+density_config_5 = Config(server_size = 10 ** 5, client_batch_size=500)
+density_config_6 = Config(server_size = 10 ** 6, early_stopping_levels={1: 1}, sparsity_constant = 1, client_batch_size=20)
 
 gowalla_sf_config = Config(dataset = Dataset.GOWALLA, domain = [(-122.42, -122.407067), (37.79, 37.801950)], experiment_series = 'gowalla/sf', true_radius_constant = 4000, sparsity_constant = 1.136, epsilons=[0.1, 0.3, 0.7, 0.9], early_stopping_levels={4: 1.25, 5: 1.3, 6: 1.5, 7: 2})
 gowalla_austin_config = Config(dataset = Dataset.GOWALLA, domain = [(-97.755595,-97.717143), (30.266468, 30.294931)], experiment_series = 'gowalla/austin', true_radius_constant = 15000, sparsity_constant = 1.136)

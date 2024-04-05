@@ -25,9 +25,9 @@ def search_within_radius(client, server_tree, radius):
 
 
 
-# ------------------------------ LDP ------------------------------
+# ------------------------------ Laplace ------------------------------
 
-def search_laplace(client, server_tree, geo_eps, k):
+def sample_laplace(client, geo_eps):
     '''
     Add laplace noise then retrieve top-k nearest neighbours with a noised client
     '''
@@ -38,8 +38,7 @@ def search_laplace(client, server_tree, geo_eps, k):
     else:
         noised_client = list(map(lambda x, y: x + y, client, random_laplace_noise(geo_eps)))
 
-    # retrieve nearest neighbours
-    return search_true(noised_client, server_tree, k)
+    return noised_client
 
 
 
@@ -118,7 +117,7 @@ def search_dptt(client, server_tree, early_stopping_level, early_stopping_consta
 
 # ------------------------------ L-SRR ------------------------------
 
-def search_lsrr(client, server_tree, eps, k, domain):
+def sample_lsrr(client, server_tree, eps, domain):
     '''
     Implementation of L-SRR mechanism: https://arxiv.org/pdf/2209.15091.pdf
 
@@ -243,8 +242,7 @@ def search_lsrr(client, server_tree, eps, k, domain):
     # 3. Transform the unit square to the domain
     noised_client = [lower + val * (upper - lower) for val, (lower, upper) in zip(noised_client_scaled_to_unit_square, domain)]
 
-    # NN search using the noised point
-    return search_true(noised_client, server_tree, k)
+    return noised_client
 
 
 # ------------------------------ Square Mechanism ------------------------------
@@ -320,7 +318,7 @@ def calc_square_center(client, domain, w):
     return center
 
 
-def sm(client, eps, domain):
+def sample_sm(client, eps, domain):
     '''
     An implementation of the square mechanism paper(https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9458926)'s Algorithm 1
 
@@ -339,10 +337,6 @@ def sm(client, eps, domain):
     domain_sample = np.random.uniform(low=np.array([domain[0][0], domain[1][0]]), high=np.array([domain[0][1], domain[1][1]]), size=center.shape)
 
     is_domain_sample = np.random.binomial(n=1, p=alpha * (domain[0][1] - domain[0][0]) * (domain[1][1] - domain[1][0]))
-    return np.where(is_domain_sample, domain_sample, square_sample)
+    final_sample =  np.where(is_domain_sample, domain_sample, square_sample)
+    return list(final_sample)[0]
 
-
-def search_sm(client, server_tree, eps, k, domain):
-    noised_client = list(sm(client, eps, domain))[0]
-    return search_true(noised_client, server_tree, k)
-    
