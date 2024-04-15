@@ -6,6 +6,7 @@ import inspect
 from tqdm import tqdm
 import os
 import pickle
+import time
 
 from collections import defaultdict
 from data import *
@@ -13,6 +14,8 @@ from nn import *
 from evaluation import *
 from config import *
 from budget import *
+from adversary import *
+
 
 if __name__ == '__main__':
 
@@ -21,9 +24,9 @@ if __name__ == '__main__':
     # ------------------------ INITIALIZE DATAFRAME AND CONFIG -------------------------
     # ----------------------------------------------------------------------------------
 
-    config = density_config_5
+    # config = density_config_5
     # config = one_dim_config_5
-    # config = gowalla_sf_config
+    config = gowalla_sf_config
     
 
     raw_df = pd.DataFrame(columns=[
@@ -72,6 +75,7 @@ if __name__ == '__main__':
         # create kd-tree from points
         server_tree = kdtree.create(server) # server tree with no change
         dptt_server_tree = kdtree_extension.create(server) # server tree with nodes pushed to the leaf
+        # server_rectangles = find_bounding_rectangles(dptt_server_tree, config.domain)
 
 
         # -----------------------------------------------------------------------------
@@ -94,7 +98,9 @@ if __name__ == '__main__':
             # find points in server within a certain radius of client
             nn_within_radius = search_within_radius(client, server_tree, config.true_radius_squared)
             # if there's nothing around, skip this iteration
-            if len(nn_within_radius) == 0: continue
+            if len(nn_within_radius) == 0:
+                pbar.update(len(config.epsilons) * len(config.scheduler_types) * len(config.early_stopping_levels))
+                continue
             # update metadata
             metadata['number_of_nn_within_radius'].append(len(nn_within_radius))
 

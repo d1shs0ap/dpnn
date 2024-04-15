@@ -61,10 +61,10 @@ density_config_3 = Config(server_size = 10 ** 3, early_stopping_levels={4: 1.25,
 density_config_4 = Config(server_size = 10 ** 4, early_stopping_levels={1: 1, 3: 1.17, 5: 1.39, 9: 2.32}, sparsity_constant = 1.44)
 # density_config_5 = Config(server_size = 10 ** 5, early_stopping_levels={1: 1, 3: 1.14, 5: 1.3, 9: 1.9}, sparsity_constant = 1.17, client_batch_size=20)
 # density_config_6 = Config(server_size = 10 ** 6, early_stopping_levels={1: 1, 3: 1.11, 5: 1.25, 9: 1.67}, sparsity_constant = 1, client_batch_size=20)
-density_config_5 = Config(server_size = 10 ** 5, client_batch_size=500)
+density_config_5 = Config(server_size = 10 ** 5, early_stopping_levels = {1: 1, 3: 1, 5: 1, 7: 1}, epsilons = [3.5 + .8 * i for i in range(8)], laplace_epsilons = [18 + 25 * i for i in range(8)], sm_epsilons = [5 + 1.5 * i for i in range(8)],client_batch_size=500)
 density_config_6 = Config(server_size = 10 ** 6, early_stopping_levels={1: 1}, sparsity_constant = 1, client_batch_size=20)
 
-gowalla_sf_config = Config(dataset = Dataset.GOWALLA, domain = [(-122.42, -122.407067), (37.79, 37.801950)], experiment_series = 'gowalla/sf', true_radius_constant = 4000, sparsity_constant = 1.136, epsilons=[0.1, 0.3, 0.7, 0.9], early_stopping_levels={4: 1.25, 5: 1.3, 6: 1.5, 7: 2})
+gowalla_sf_config = Config(dataset = Dataset.GOWALLA, domain = [(-122.446660, -122.382287), (37.747002, 37.809008)], experiment_series = 'gowalla/sf', true_radius_constant = 80, sparsity_constant = 1.136, early_stopping_levels = {1: 1, 3: 1, 5: 1, 7: 1}, epsilons = [2 + 1 * i for i in range(8)], laplace_epsilons = [15 + 25 * i for i in range(8)], sm_epsilons = [3.5 + 1.5 * i for i in range(8)], client_batch_size=500)
 gowalla_austin_config = Config(dataset = Dataset.GOWALLA, domain = [(-97.755595,-97.717143), (30.266468, 30.294931)], experiment_series = 'gowalla/austin', true_radius_constant = 15000, sparsity_constant = 1.136)
 gowalla_nyc_config = Config(dataset = Dataset.GOWALLA, domain = [(-74.2589, -73.7004), (40.4774, 40.9176)], experiment_series = 'gowalla')
 
