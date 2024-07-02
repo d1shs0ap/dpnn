@@ -24,9 +24,10 @@ if __name__ == '__main__':
     # ------------------------ INITIALIZE DATAFRAME AND CONFIG -------------------------
     # ----------------------------------------------------------------------------------
 
-    # config = density_config_5
+    # config = density_config_6
     # config = one_dim_config_5
     config = gowalla_sf_config
+    # config = scheduler_config
     
 
     raw_df = pd.DataFrame(columns=[
@@ -111,6 +112,7 @@ if __name__ == '__main__':
                         # DP-TT-CMP and DIS
                         cmp_nn, cmp_eps_lst, cmp_eps_geo_lst = search_dptt(client=client, server_tree=dptt_server_tree, early_stopping_level=early_stopping_level, early_stopping_constant=early_stopping_constant, sparsity_constant = config.sparsity_constant, scheduler=scheduler_type(eps))
                         eps_cmp = calculate_adaptive_eps(eps_lst=cmp_eps_lst, delta=1/config.server_size)
+                        # eps_cmp = sum(cmp_eps_lst)
                         # eps_geo_cmp = sum(cmp_eps_geo_lst)
                         cmp_nn = [node.data for node in cmp_nn]
 

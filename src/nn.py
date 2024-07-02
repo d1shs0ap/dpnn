@@ -91,7 +91,6 @@ def search_dptt(client, server_tree, early_stopping_level, early_stopping_consta
         
         if node.height() > early_stopping_level:
             axis = level % dimension
-
             node_eps = sparsity_constant * early_stopping_constant * scheduler(level)
             noised_choose_right = apply_exponential_mechanism_cmp(client, node, axis, node_eps)
 
